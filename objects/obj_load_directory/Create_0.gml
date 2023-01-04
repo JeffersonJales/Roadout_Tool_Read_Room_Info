@@ -13,6 +13,7 @@ global.roadout_strunct_yyp	= json_parse(global.roadout_strunct_yyp);
 global.roadout_box_amount_total = 0;
 global.roadout_box_amount_per_dungeon = {};
 
+global.roadout_research_point = { total : 0, rooms : []};
 
 global.special_char = "\\";
 global.room_counter = 0;
@@ -51,6 +52,7 @@ get_dungeon_key = function(room_name){
 	if(!variable_struct_exists(global.roadout_box_amount_per_dungeon, _key)){
 		global.roadout_box_amount_per_dungeon[$ _key] = { 
 			Dungeon_Leader : "AI",
+			World_Map : 1,
 			Boxes : {
 				Box_AI : 0, 
 				Box_Bio : 0, 
@@ -68,6 +70,7 @@ get_dungeon_key = function(room_name){
 				RoomWithEnemyAI : 0, RoomWithEnemyBio : 0, RoomWithEnemyCyber : 0, RoomWithEnemyDiesel : 0,
 			},
 			EnemiesByRoom : {},
+			Research_Point : []
 		};	 
 
 	}
@@ -134,7 +137,12 @@ do_stuff = function(){
 	alarm[0] = 2;
 	
 	if(global.room_counter >= global.room_amount) { 
-		var _str = json_stringify(global.roadout_box_amount_per_dungeon);
+		var _s = { 
+			dungeons_info : global.roadout_box_amount_per_dungeon, 
+			research : global.roadout_research_point,
+		}
+		
+		var _str = json_stringify(_s);
 		var _buffer = buffer_create(string_byte_length(_str) + 1, buffer_fixed, 1);
 		buffer_write(_buffer, buffer_string, _str);
 		buffer_save(_buffer, "DUNGEON_INFO.json");
@@ -167,9 +175,28 @@ do_stuff = function(){
 			if(_layer == "AllDungeonGangLayers"){ /// PICK ALL DUNGEON GANG LAYERS 
 				
 				global.roadout_box_amount_per_dungeon[$ dg_key][$ "EnemiesByRoom"][$ struct_room.name] = {};
-			
+				var _is_first_room = string_pos("F", struct_room.name) > 0;
+				
+				
 				var g = 0; repeat(array_length(struct_room.layers[f].layers)){ 
 					_layer = struct_room.layers[f].layers[g].name;
+					
+					/// Adicionando informações sobre região
+					if(_is_first_room){
+						var _tags = struct_room.tags;
+						for(var k = 0; k < array_length(_tags); k++){
+							if(string_pos("DG_WM_", _tags[k]) > 0){
+								var _tag_region = _tags[k];
+								
+								/// Região da dungeon
+								global.roadout_box_amount_per_dungeon[$ dg_key][$ "World_Map"] = string_replace(_tag_region , "DG_WM_", "WM "); 
+								
+								break;
+							} 
+						}
+						
+					}
+					
 					if(_layer == "Box_Layer"){
 						var h = 0; repeat(array_length(struct_room.layers[f].layers[g].layers)){
 							var _layer_box = struct_room.layers[f].layers[g].layers[h];
@@ -180,7 +207,7 @@ do_stuff = function(){
 					
 					if(_layer == "Enemy_Layer"){
 						
-						if(string_pos("F", struct_room.name) > 0){
+						if(_is_first_room){
 							global.roadout_box_amount_per_dungeon[$ dg_key][$ "Dungeon_Leader"] = string_replace(struct_room.layers[f].layers[g].layers[0].name, "Enemy_","");
 						}
 						
@@ -228,6 +255,26 @@ do_stuff = function(){
 								}
 							}
 							
+							
+							h++;
+						}
+					}
+					
+					if(_layer == "Input_Layer"){
+						var h = 0; repeat(array_length(struct_room.layers[f].layers[g].layers)){
+							var _layer_input = struct_room.layers[f].layers[g].layers[h];
+							var _len = array_length(_layer_input.instances);
+							if(_len > 0){
+								for(var p = 0; p < _len; p++){
+									var _inst = _layer_input.instances[p].objectId.name;
+									if(_inst == "obj_box_research_point"){
+										global.roadout_research_point[$ "total"]++;
+										
+										array_push(global.roadout_box_amount_per_dungeon[$ dg_key][$ "Research_Point"], struct_room.name);
+										array_push(global.roadout_research_point[$ "rooms"], struct_room.name);
+									}
+								}
+							}
 							
 							h++;
 						}
